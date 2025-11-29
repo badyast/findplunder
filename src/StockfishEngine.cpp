@@ -290,7 +290,13 @@ std::string StockfishEngine::readLine() {
 
 void StockfishEngine::setPosition(const std::string& fen, const std::vector<std::string>& moves) {
     std::ostringstream cmd;
-    cmd << "position fen " << fen;
+
+    // If fen is "startpos", use startpos instead of FEN notation
+    if (fen == "startpos") {
+        cmd << "position startpos";
+    } else {
+        cmd << "position fen " << fen;
+    }
 
     if (!moves.empty()) {
         cmd << " moves";
@@ -349,10 +355,24 @@ ScoreResult StockfishEngine::getBestMove(int depth) {
     return parseSearchResult();
 }
 
-ScoreResult StockfishEngine::evaluateMove(const std::string& fen, const std::string& move, int depth) {
+ScoreResult StockfishEngine::evaluateMove(const std::string& fenOrStartpos, const std::vector<std::string>& movesToPosition, const std::string& moveToEvaluate, int depth) {
     // Set position after the move (checkscore.py approach)
     std::ostringstream cmd;
-    cmd << "position fen " << fen << " moves " << move;
+
+    // Use startpos or FEN
+    if (fenOrStartpos == "startpos") {
+        cmd << "position startpos";
+    } else {
+        cmd << "position fen " << fenOrStartpos;
+    }
+
+    // Add all moves to get to the position, plus the move to evaluate
+    cmd << " moves";
+    for (size_t i = 0; i < movesToPosition.size(); i++) {
+        cmd << " " << movesToPosition[i];
+    }
+    cmd << " " << moveToEvaluate;
+
     usleep(50000);  // 50ms delay
     sendCommand(cmd.str());
 

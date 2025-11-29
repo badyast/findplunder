@@ -22,13 +22,17 @@ public:
     void terminate();
 
     // Set current position
+    // If fen == "startpos", uses startpos instead of FEN notation
     void setPosition(const std::string& fen, const std::vector<std::string>& moves = std::vector<std::string>());
 
     // Get best move from current position
     ScoreResult getBestMove(int depth);
 
-    // Evaluate a specific move from a FEN position (checkscore.py approach)
-    ScoreResult evaluateMove(const std::string& fen, const std::string& move, int depth);
+    // Evaluate a specific move from a position (checkscore.py approach)
+    // If fenOrStartpos == "startpos", uses startpos, otherwise uses FEN notation
+    // movesToPosition: moves to reach the position before moveToEvaluate
+    // moveToEvaluate: the move to evaluate
+    ScoreResult evaluateMove(const std::string& fenOrStartpos, const std::vector<std::string>& movesToPosition, const std::string& moveToEvaluate, int depth);
 
 private:
     std::string stockfishPath;

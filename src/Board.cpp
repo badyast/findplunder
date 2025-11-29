@@ -136,15 +136,33 @@ std::string Board::toFen() const {
     // Active color
     oss << ' ' << (whiteToMove ? 'w' : 'b');
 
-    // Castling rights
+    // Castling rights (validate before outputting to prevent invalid FENs)
     oss << ' ';
-    if (castlingRights == 0) {
+    int validCastlingRights = castlingRights;
+
+    // Validate white castling rights (king on e1, rooks on a1/h1)
+    if ((validCastlingRights & CASTLE_WK) && (board[4] != WHITE_KING || board[7] != WHITE_ROOK)) {
+        validCastlingRights &= ~CASTLE_WK;
+    }
+    if ((validCastlingRights & CASTLE_WQ) && (board[4] != WHITE_KING || board[0] != WHITE_ROOK)) {
+        validCastlingRights &= ~CASTLE_WQ;
+    }
+
+    // Validate black castling rights (king on e8, rooks on a8/h8)
+    if ((validCastlingRights & CASTLE_BK) && (board[60] != BLACK_KING || board[63] != BLACK_ROOK)) {
+        validCastlingRights &= ~CASTLE_BK;
+    }
+    if ((validCastlingRights & CASTLE_BQ) && (board[60] != BLACK_KING || board[56] != BLACK_ROOK)) {
+        validCastlingRights &= ~CASTLE_BQ;
+    }
+
+    if (validCastlingRights == 0) {
         oss << '-';
     } else {
-        if (castlingRights & CASTLE_WK) oss << 'K';
-        if (castlingRights & CASTLE_WQ) oss << 'Q';
-        if (castlingRights & CASTLE_BK) oss << 'k';
-        if (castlingRights & CASTLE_BQ) oss << 'q';
+        if (validCastlingRights & CASTLE_WK) oss << 'K';
+        if (validCastlingRights & CASTLE_WQ) oss << 'Q';
+        if (validCastlingRights & CASTLE_BK) oss << 'k';
+        if (validCastlingRights & CASTLE_BQ) oss << 'q';
     }
 
     // En passant square

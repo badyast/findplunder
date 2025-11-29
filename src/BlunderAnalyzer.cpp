@@ -49,6 +49,9 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
     Board board;
     board.setFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
+    // Keep track of all moves from the start (for UCI position command)
+    std::vector<std::string> allMoves;
+
     // Calculate total moves to analyze
     int totalMovesToAnalyze = 0;
     for (size_t i = 0; i < game.moves.size(); i++) {
@@ -65,10 +68,13 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         // Calculate current move number
         int moveNum = (i / 2) + 1;
 
-        // Skip moves before startMoveNumber
+        std::string playedMove = game.moves[i];
+
+        // Skip moves before startMoveNumber (but still track them for position)
         if (moveNum < config.startMoveNumber) {
-            Move move = Move::fromUci(game.moves[i]);
+            Move move = Move::fromUci(playedMove);
             board.makeMove(move);
+            allMoves.push_back(playedMove);
             continue;
         }
 
@@ -76,18 +82,17 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         std::string side = (i % 2 == 0) ? "White" : "Black";
 
         std::cout << "  Analyzing move " << analyzedCount << "/" << totalMovesToAnalyze
-                  << " (Move " << moveNum << side[0] << ": " << game.moves[i] << ")...";
+                  << " (Move " << moveNum << side[0] << ": " << playedMove << ")...";
         std::cout.flush();
 
-        std::string currentFen = board.toFen();
-        std::string playedMove = game.moves[i];
-
         // 1. Get best move and its score from current position
-        engine->setPosition(currentFen);
+        // Use "startpos" + all moves so far (no FEN generation needed!)
+        engine->setPosition("startpos", allMoves);
         ScoreResult bestResult = engine->getBestMove(config.stockfishDepth);
 
         // 2. Get score of played move (checkscore.py approach)
-        ScoreResult playedResult = engine->evaluateMove(currentFen, playedMove, config.stockfishDepth);
+        // Pass all moves so far, plus the move to evaluate
+        ScoreResult playedResult = engine->evaluateMove("startpos", allMoves, playedMove, config.stockfishDepth);
 
         // 3. Calculate score difference (absolute value)
         int scoreDiff = abs(playedResult.scoreCP - bestResult.scoreCP);
@@ -117,9 +122,10 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
 
         game.addAnalysis(analysis);
 
-        // 5. Make the played move on the board
+        // 5. Make the played move on the board and add to move list
         Move move = Move::fromUci(playedMove);
         board.makeMove(move);
+        allMoves.push_back(playedMove);
     }
 }
 
