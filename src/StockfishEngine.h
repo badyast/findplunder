@@ -25,7 +25,7 @@ struct MoveScore {
 
 class StockfishEngine {
 public:
-    StockfishEngine(const std::string& path, int depth, int numThreads = 1, bool enableDebug = false);
+    StockfishEngine(const std::string& path, int depth, int numThreads = 1, int numMultiPV = 200, bool enableDebug = false);
     ~StockfishEngine();
 
     bool initialize();
@@ -52,6 +52,7 @@ private:
     std::string stockfishPath;
     int defaultDepth;
     int threads;
+    int multiPV;
     bool debugMode;
 
     // Process communication

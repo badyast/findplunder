@@ -9,10 +9,11 @@
 #include <cstdlib>
 #include <errno.h>
 
-StockfishEngine::StockfishEngine(const std::string& path, int depth, int numThreads, bool enableDebug)
+StockfishEngine::StockfishEngine(const std::string& path, int depth, int numThreads, int numMultiPV, bool enableDebug)
     : stockfishPath(path)
     , defaultDepth(depth)
     , threads(numThreads)
+    , multiPV(numMultiPV)
     , debugMode(enableDebug)
     , pid(-1)
     , fdToEngine(-1)
@@ -119,9 +120,11 @@ bool StockfishEngine::initialize() {
     threadsCmd << "setoption name Threads value " << threads;
     sendCommand(threadsCmd.str());
 
-    // Set MultiPV to 200 to get top 200 moves
+    // Set MultiPV to get top N moves
     usleep(100000);  // 100ms delay
-    sendCommand("setoption name MultiPV value 200");
+    std::ostringstream multiPVCmd;
+    multiPVCmd << "setoption name MultiPV value " << multiPV;
+    sendCommand(multiPVCmd.str());
 
     // Enable Stockfish internal debug logging (only in debug mode)
     if (debugMode) {

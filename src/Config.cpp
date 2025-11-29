@@ -10,6 +10,7 @@ Config::Config()
     , stockfishDepth(15)
     , thresholdCP(150)
     , threads(12)
+    , multiPV(200)
     , stockfishPath("stockfish")
     , pgnExtractPath("pgn-extract")
     , inputPgnFile("")
@@ -42,6 +43,9 @@ void Config::loadFromCommandLine(int argc, char** argv) {
         }
         else if (arg == "--threads" && i + 1 < argc) {
             threads = atoi(argv[++i]);
+        }
+        else if (arg == "--multipv" && i + 1 < argc) {
+            multiPV = atoi(argv[++i]);
         }
         else if (arg == "--stockfish" && i + 1 < argc) {
             stockfishPath = argv[++i];
@@ -95,6 +99,11 @@ bool Config::validate() const {
         return false;
     }
 
+    if (multiPV < 1 || multiPV > 500) {
+        std::cerr << "Error: MultiPV must be between 1 and 500" << std::endl;
+        return false;
+    }
+
     return true;
 }
 
@@ -106,6 +115,7 @@ void Config::printUsage(const char* programName) const {
     std::cout << "  --depth <n>           Stockfish search depth (default: 15)" << std::endl;
     std::cout << "  --start-move <n>      Start analysis from move number (default: 1)" << std::endl;
     std::cout << "  --threads <n>         Number of CPU threads for Stockfish (default: 12)" << std::endl;
+    std::cout << "  --multipv <n>         Number of top moves to analyze (default: 200)" << std::endl;
     std::cout << "  --games <selection>   Analyze specific games: '2' or '2-5' or '2,6,9' (default: all)" << std::endl;
     std::cout << "  --blunders-only       Only show blunders, skip per-move output" << std::endl;
     std::cout << "  --stockfish <path>    Path to Stockfish binary (default: stockfish)" << std::endl;

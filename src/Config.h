@@ -11,6 +11,7 @@ public:
     int stockfishDepth;
     int thresholdCP;
     int threads;
+    int multiPV;  // Number of principal variations (top moves) to analyze
     std::string stockfishPath;
     std::string pgnExtractPath;
     std::string inputPgnFile;

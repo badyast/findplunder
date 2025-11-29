@@ -9,7 +9,7 @@ BlunderAnalyzer::BlunderAnalyzer(const Config& cfg)
     : config(cfg)
     , engine(NULL)
 {
-    engine = new StockfishEngine(config.stockfishPath, config.stockfishDepth, config.threads, config.debugMode);
+    engine = new StockfishEngine(config.stockfishPath, config.stockfishDepth, config.threads, config.multiPV, config.debugMode);
 }
 
 BlunderAnalyzer::~BlunderAnalyzer() {
