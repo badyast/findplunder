@@ -94,7 +94,7 @@ sudo apt-get install stockfish pgn-extract
 | `--threshold <cp>` | Minimum score difference in centipawns to mark as blunder | 150 |
 | `--depth <n>` | Stockfish search depth | 15 |
 | `--start-move <n>` | Start analysis from move number | 1 |
-| `--threads <n>` | Number of CPU threads for Stockfish | 12 |
+| `--threads <n>` | Number of CPU threads for Stockfish | auto-detect |
 | `--multipv <n>` | Number of top moves to analyze (1-500) | 200 |
 | `--games <sel>` | Analyze specific games: `"2"`, `"2-5"`, or `"2,6,9"` | all |
 | `--blunders-only` | Only show blunders, skip per-move output | off |

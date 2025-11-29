@@ -4,12 +4,13 @@
 #include <fstream>
 #include <sstream>
 #include <set>
+#include <thread>
 
 Config::Config()
     : startMoveNumber(1)
     , stockfishDepth(15)
     , thresholdCP(150)
-    , threads(12)
+    , threads(std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() : 1)
     , multiPV(200)
     , stockfishPath("stockfish")
     , pgnExtractPath("pgn-extract")
@@ -114,7 +115,7 @@ void Config::printUsage(const char* programName) const {
     std::cout << "  --threshold <cp>      Minimum score difference in centipawns (default: 150)" << std::endl;
     std::cout << "  --depth <n>           Stockfish search depth (default: 15)" << std::endl;
     std::cout << "  --start-move <n>      Start analysis from move number (default: 1)" << std::endl;
-    std::cout << "  --threads <n>         Number of CPU threads for Stockfish (default: 12)" << std::endl;
+    std::cout << "  --threads <n>         Number of CPU threads for Stockfish (default: auto-detect)" << std::endl;
     std::cout << "  --multipv <n>         Number of top moves to analyze (default: 200)" << std::endl;
     std::cout << "  --games <selection>   Analyze specific games: '2' or '2-5' or '2,6,9' (default: all)" << std::endl;
     std::cout << "  --blunders-only       Only show blunders, skip per-move output" << std::endl;
