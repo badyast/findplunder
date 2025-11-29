@@ -238,8 +238,21 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **badyast** - [GitHub](https://github.com/badyast)
 
+## Support the Project
+
+If you find this tool useful, consider supporting its development:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/☕-Buy%20me%20a%20coffee-orange.svg)](https://www.buymeacoffee.com/badyast)
+
+👉 [Buy Me a Coffee](https://www.buymeacoffee.com/badyast)
+
+Your support helps maintain and improve this project!
+
 ---
 
-**Note**: Findepatzer (German for "blunder finder") is designed for analyzing chess games to help players improve by identifying tactical mistakes. It's particularly useful for coaches, students, and anyone looking to learn from their games.
+**Note**: Findepatzer (German for "blunder finder") is designed for analyzing chess games to help players improve by identifying tactical mistakes. It's particularly useful for:
+- 📚 **Players & Coaches** - Learning from mistakes in your games
+- 🎓 **Chess Students** - Systematic improvement through blunder analysis
+- ⚙️ **Engine Developers** - Testing custom chess engines for bugs by comparing against Stockfish
 
 💡 **Tip**: Start with default settings and adjust based on your needs. For most use cases, the defaults work great!
