@@ -119,6 +119,10 @@ bool StockfishEngine::initialize() {
     threadsCmd << "setoption name Threads value " << threads;
     sendCommand(threadsCmd.str());
 
+    // Set MultiPV to 200 to get top 200 moves
+    usleep(100000);  // 100ms delay
+    sendCommand("setoption name MultiPV value 200");
+
     // Enable Stockfish internal debug logging (only in debug mode)
     if (debugMode) {
         usleep(100000);  // 100ms delay
@@ -446,4 +450,101 @@ ScoreResult StockfishEngine::parseSearchResult() {
     }
 
     return result;
+}
+
+std::vector<MoveScore> StockfishEngine::parseMultiPVResult() {
+    std::vector<MoveScore> results;
+    std::string line;
+    int targetDepth = -1;
+
+    while (true) {
+        line = readLine();
+
+        // Check for empty line (timeout or error)
+        if (line.empty()) {
+            std::cerr << "\nError: No response from Stockfish during MultiPV parsing" << std::endl;
+            break;
+        }
+
+        if (line.find("info ") == 0) {
+            // Parse MultiPV info lines
+            size_t multiPVPos = line.find(" multipv ");
+            if (multiPVPos == std::string::npos) {
+                continue;  // Skip non-MultiPV info lines
+            }
+
+            // Extract depth
+            size_t depthPos = line.find(" depth ");
+            if (depthPos != std::string::npos) {
+                std::istringstream iss(line.substr(depthPos + 7));
+                int depth;
+                iss >> depth;
+
+                // Set target depth from first MultiPV line
+                if (targetDepth == -1) {
+                    targetDepth = depth;
+                }
+
+                // Only process lines from the final depth
+                if (depth != targetDepth) {
+                    continue;
+                }
+            }
+
+            MoveScore moveScore;
+
+            // Extract MultiPV index
+            std::istringstream issMultiPV(line.substr(multiPVPos + 9));
+            issMultiPV >> moveScore.multiPVIndex;
+
+            // Parse score
+            size_t cpPos = line.find(" cp ");
+            if (cpPos != std::string::npos) {
+                std::istringstream iss(line.substr(cpPos + 4));
+                iss >> moveScore.scoreCP;
+                moveScore.isMate = false;
+            }
+
+            size_t matePos = line.find(" mate ");
+            if (matePos != std::string::npos) {
+                std::istringstream iss(line.substr(matePos + 6));
+                iss >> moveScore.mateInN;
+                moveScore.isMate = true;
+                // Convert mate to large score
+                moveScore.scoreCP = (moveScore.mateInN > 0) ? 10000 : -10000;
+            }
+
+            // Parse move from pv
+            size_t pvPos = line.find(" pv ");
+            if (pvPos != std::string::npos) {
+                std::istringstream iss(line.substr(pvPos + 4));
+                iss >> moveScore.move;
+            }
+
+            // Store this move score
+            if (!moveScore.move.empty()) {
+                results.push_back(moveScore);
+            }
+        }
+
+        if (line.find("bestmove ") == 0) {
+            break;
+        }
+    }
+
+    return results;
+}
+
+std::vector<MoveScore> StockfishEngine::analyzePosition(const std::string& fenOrStartpos, const std::vector<std::string>& moves, int depth) {
+    // Set the position
+    setPosition(fenOrStartpos, moves);
+
+    // Start search with MultiPV
+    std::ostringstream cmd;
+    cmd << "go depth " << depth;
+    usleep(50000);  // 50ms delay
+    sendCommand(cmd.str());
+
+    // Parse and return all MultiPV results
+    return parseMultiPVResult();
 }

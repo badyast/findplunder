@@ -81,48 +81,98 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         analyzedCount++;
         std::string side = (i % 2 == 0) ? "White" : "Black";
 
-        std::cout << "  Analyzing move " << analyzedCount << "/" << totalMovesToAnalyze
-                  << " (Move " << moveNum << side[0] << ": " << playedMove << ")...";
-        std::cout.flush();
+        // 1. Analyze position with MultiPV to get all top moves
+        std::vector<MoveScore> topMoves = engine->analyzePosition("startpos", allMoves, config.stockfishDepth);
 
-        // 1. Get best move and its score from current position
-        // Use "startpos" + all moves so far (no FEN generation needed!)
-        engine->setPosition("startpos", allMoves);
-        ScoreResult bestResult = engine->getBestMove(config.stockfishDepth);
-
-        // 2. Get score of played move (checkscore.py approach)
-        // Pass all moves so far, plus the move to evaluate
-        ScoreResult playedResult = engine->evaluateMove("startpos", allMoves, playedMove, config.stockfishDepth);
-
-        // 3. Calculate score difference (absolute value)
-        int scoreDiff = abs(playedResult.scoreCP - bestResult.scoreCP);
-
-        // Show result on same line
-        if (scoreDiff > config.thresholdCP) {
-            std::cout << " BLUNDER! (loss: " << scoreDiff << "cp)" << std::endl;
-        } else {
-            std::cout << " OK (diff: " << scoreDiff << "cp)" << std::endl;
+        if (topMoves.empty()) {
+            std::cout << "  Move " << moveNum << side[0] << ": " << playedMove
+                      << " | ERROR: No moves from engine" << std::endl;
+            continue;
         }
 
-        // 4. Store analysis
+        // 2. Best move is always first (multipv 1)
+        MoveScore bestMove = topMoves[0];
+
+        // 3. Find the played move in the top moves list
+        MoveScore* playedMoveScore = nullptr;
+        for (size_t j = 0; j < topMoves.size(); j++) {
+            if (topMoves[j].move == playedMove) {
+                playedMoveScore = &topMoves[j];
+                break;
+            }
+        }
+
+        // 4. Calculate score difference
+        int scoreDiff;
+        int playedScore;
+        bool isMate = bestMove.isMate;
+        int mateInN = bestMove.mateInN;
+
+        if (playedMoveScore != nullptr) {
+            // Played move found in top moves
+            playedScore = playedMoveScore->scoreCP;
+            scoreDiff = abs(playedScore - bestMove.scoreCP);
+            if (playedMoveScore->isMate) {
+                isMate = true;
+                mateInN = playedMoveScore->mateInN;
+            }
+        } else {
+            // Played move NOT in top 200 - it's extremely bad!
+            playedScore = -9999;  // Placeholder for "very bad"
+            scoreDiff = 9999;  // Mark as huge blunder
+        }
+
+        // 5. Format and display the result
+        std::cout << "  " << moveNum << side[0] << " " << playedMove << " | ";
+
+        // Best move
+        std::cout << "Best: " << bestMove.move << " (";
+        if (bestMove.isMate) {
+            std::cout << (bestMove.mateInN > 0 ? "+" : "") << "M" << abs(bestMove.mateInN);
+        } else {
+            std::cout << (bestMove.scoreCP > 0 ? "+" : "") << bestMove.scoreCP << "cp";
+        }
+        std::cout << ") | ";
+
+        // Played move
+        std::cout << "Played: " << playedMove << " (";
+        if (playedMoveScore != nullptr) {
+            if (playedMoveScore->isMate) {
+                std::cout << (playedMoveScore->mateInN > 0 ? "+" : "") << "M" << abs(playedMoveScore->mateInN);
+            } else {
+                std::cout << (playedScore > 0 ? "+" : "") << playedScore << "cp";
+            }
+        } else {
+            std::cout << "not in top 200";
+        }
+        std::cout << ") | ";
+
+        // Difference
+        std::cout << "Diff: " << scoreDiff << "cp";
+
+        // Verdict
+        if (playedMoveScore == nullptr) {
+            std::cout << " [EXTREME BLUNDER]";
+        } else if (scoreDiff > config.thresholdCP) {
+            std::cout << " [BLUNDER]";
+        }
+
+        std::cout << std::endl;
+
+        // 6. Store analysis
         MoveAnalysis analysis;
         analysis.moveNumber = moveNum;
         analysis.playedMove = playedMove;
-        analysis.playedScore = playedResult.scoreCP;
-        analysis.bestMove = bestResult.bestMove;
-        analysis.bestScore = bestResult.scoreCP;
+        analysis.playedScore = playedScore;
+        analysis.bestMove = bestMove.move;
+        analysis.bestScore = bestMove.scoreCP;
         analysis.scoreDifference = scoreDiff;
-        analysis.isMateScore = bestResult.isMate || playedResult.isMate;
-
-        if (bestResult.isMate) {
-            analysis.mateInN = bestResult.mateInN;
-        } else if (playedResult.isMate) {
-            analysis.mateInN = playedResult.mateInN;
-        }
+        analysis.isMateScore = isMate;
+        analysis.mateInN = mateInN;
 
         game.addAnalysis(analysis);
 
-        // 5. Make the played move on the board and add to move list
+        // 7. Make the played move on the board and add to move list
         Move move = Move::fromUci(playedMove);
         board.makeMove(move);
         allMoves.push_back(playedMove);
