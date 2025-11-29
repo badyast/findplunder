@@ -3,6 +3,7 @@
 #include "Move.h"
 #include <iostream>
 #include <cstdlib>
+#include <set>
 
 BlunderAnalyzer::BlunderAnalyzer(const Config& cfg)
     : config(cfg)
@@ -25,16 +26,30 @@ void BlunderAnalyzer::analyzeGames(std::vector<Game>& games) {
         return;
     }
 
+    // Parse game selection
+    std::set<int> selectedGames = config.parseGameSelection();
+
     std::cout << "=== Findepatzer ===" << std::endl;
     std::cout << "Stockfish depth: " << config.stockfishDepth << std::endl;
     std::cout << "Stockfish threads: " << config.threads << std::endl;
     std::cout << "Threshold: " << config.thresholdCP << " cp" << std::endl;
     std::cout << "Start move: " << config.startMoveNumber << std::endl;
+    if (!selectedGames.empty()) {
+        std::cout << "Selected games: " << config.gameSelection << std::endl;
+    }
+    if (config.blundersOnly) {
+        std::cout << "Mode: Blunders only" << std::endl;
+    }
     std::cout << "Total games: " << games.size() << std::endl;
     std::cout << std::endl;
 
     // Analyze each game
     for (size_t i = 0; i < games.size(); i++) {
+        // Check if this game is selected (1-based index)
+        if (!selectedGames.empty() && selectedGames.find(i + 1) == selectedGames.end()) {
+            continue;  // Skip this game
+        }
+
         std::cout << "Analyzing game " << (i + 1) << "/" << games.size()
                   << ": " << games[i].getHeader("White")
                   << " vs " << games[i].getHeader("Black") << "..." << std::endl;
@@ -61,7 +76,9 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         }
     }
 
-    std::cout << "  Total moves to analyze: " << totalMovesToAnalyze << std::endl;
+    if (!config.blundersOnly) {
+        std::cout << "  Total moves to analyze: " << totalMovesToAnalyze << std::endl;
+    }
 
     int analyzedCount = 0;
     for (size_t i = 0; i < game.moves.size(); i++) {
@@ -122,42 +139,44 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
             scoreDiff = 9999;  // Mark as huge blunder
         }
 
-        // 5. Format and display the result
-        std::cout << "  " << moveNum << side[0] << " " << playedMove << " | ";
+        // 5. Format and display the result (unless blunders-only mode)
+        if (!config.blundersOnly) {
+            std::cout << "  " << moveNum << side[0] << " " << playedMove << " | ";
 
-        // Best move
-        std::cout << "Best: " << bestMove.move << " (";
-        if (bestMove.isMate) {
-            std::cout << (bestMove.mateInN > 0 ? "+" : "") << "M" << abs(bestMove.mateInN);
-        } else {
-            std::cout << (bestMove.scoreCP > 0 ? "+" : "") << bestMove.scoreCP << "cp";
-        }
-        std::cout << ") | ";
-
-        // Played move
-        std::cout << "Played: " << playedMove << " (";
-        if (playedMoveScore != nullptr) {
-            if (playedMoveScore->isMate) {
-                std::cout << (playedMoveScore->mateInN > 0 ? "+" : "") << "M" << abs(playedMoveScore->mateInN);
+            // Best move
+            std::cout << "Best: " << bestMove.move << " (";
+            if (bestMove.isMate) {
+                std::cout << (bestMove.mateInN > 0 ? "+" : "") << "M" << abs(bestMove.mateInN);
             } else {
-                std::cout << (playedScore > 0 ? "+" : "") << playedScore << "cp";
+                std::cout << (bestMove.scoreCP > 0 ? "+" : "") << bestMove.scoreCP << "cp";
             }
-        } else {
-            std::cout << "not in top 200";
+            std::cout << ") | ";
+
+            // Played move
+            std::cout << "Played: " << playedMove << " (";
+            if (playedMoveScore != nullptr) {
+                if (playedMoveScore->isMate) {
+                    std::cout << (playedMoveScore->mateInN > 0 ? "+" : "") << "M" << abs(playedMoveScore->mateInN);
+                } else {
+                    std::cout << (playedScore > 0 ? "+" : "") << playedScore << "cp";
+                }
+            } else {
+                std::cout << "not in top 200";
+            }
+            std::cout << ") | ";
+
+            // Difference
+            std::cout << "Diff: " << scoreDiff << "cp";
+
+            // Verdict
+            if (playedMoveScore == nullptr) {
+                std::cout << " [EXTREME BLUNDER]";
+            } else if (scoreDiff > config.thresholdCP) {
+                std::cout << " [BLUNDER]";
+            }
+
+            std::cout << std::endl;
         }
-        std::cout << ") | ";
-
-        // Difference
-        std::cout << "Diff: " << scoreDiff << "cp";
-
-        // Verdict
-        if (playedMoveScore == nullptr) {
-            std::cout << " [EXTREME BLUNDER]";
-        } else if (scoreDiff > config.thresholdCP) {
-            std::cout << " [BLUNDER]";
-        }
-
-        std::cout << std::endl;
 
         // 6. Store analysis
         MoveAnalysis analysis;

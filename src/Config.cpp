@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <sstream>
+#include <set>
 
 Config::Config()
     : startMoveNumber(1)
@@ -11,7 +13,9 @@ Config::Config()
     , stockfishPath("stockfish")
     , pgnExtractPath("pgn-extract")
     , inputPgnFile("")
+    , gameSelection("")
     , debugMode(false)
+    , blundersOnly(false)
 {
 }
 
@@ -44,6 +48,12 @@ void Config::loadFromCommandLine(int argc, char** argv) {
         }
         else if (arg == "--pgn-extract" && i + 1 < argc) {
             pgnExtractPath = argv[++i];
+        }
+        else if (arg == "--games" && i + 1 < argc) {
+            gameSelection = argv[++i];
+        }
+        else if (arg == "--blunders-only") {
+            blundersOnly = true;
         }
         else if (arg == "--debug") {
             debugMode = true;
@@ -96,10 +106,49 @@ void Config::printUsage(const char* programName) const {
     std::cout << "  --depth <n>           Stockfish search depth (default: 15)" << std::endl;
     std::cout << "  --start-move <n>      Start analysis from move number (default: 1)" << std::endl;
     std::cout << "  --threads <n>         Number of CPU threads for Stockfish (default: 12)" << std::endl;
+    std::cout << "  --games <selection>   Analyze specific games: '2' or '2-5' or '2,6,9' (default: all)" << std::endl;
+    std::cout << "  --blunders-only       Only show blunders, skip per-move output" << std::endl;
     std::cout << "  --stockfish <path>    Path to Stockfish binary (default: stockfish)" << std::endl;
     std::cout << "  --pgn-extract <path>  Path to pgn-extract binary (default: pgn-extract)" << std::endl;
     std::cout << "  --debug               Enable debug logging to stockfish_debug.log" << std::endl;
     std::cout << std::endl;
-    std::cout << "Example:" << std::endl;
+    std::cout << "Examples:" << std::endl;
     std::cout << "  " << programName << " game.pgn --threshold 200 --depth 20" << std::endl;
+    std::cout << "  " << programName << " game.pgn --games \"2-5\" --blunders-only" << std::endl;
+    std::cout << "  " << programName << " game.pgn --games \"1,3,7\"" << std::endl;
+}
+
+std::set<int> Config::parseGameSelection() const {
+    std::set<int> selectedGames;
+
+    if (gameSelection.empty()) {
+        return selectedGames;  // Empty set means all games
+    }
+
+    // Parse game selection: "2", "2-5", "2,6,9", or combinations
+    std::istringstream iss(gameSelection);
+    std::string token;
+
+    while (std::getline(iss, token, ',')) {
+        // Check if it's a range (e.g., "2-5")
+        size_t dashPos = token.find('-');
+        if (dashPos != std::string::npos) {
+            // Parse range
+            int start = atoi(token.substr(0, dashPos).c_str());
+            int end = atoi(token.substr(dashPos + 1).c_str());
+            for (int i = start; i <= end; i++) {
+                if (i > 0) {
+                    selectedGames.insert(i);
+                }
+            }
+        } else {
+            // Parse single number
+            int gameNum = atoi(token.c_str());
+            if (gameNum > 0) {
+                selectedGames.insert(gameNum);
+            }
+        }
+    }
+
+    return selectedGames;
 }
