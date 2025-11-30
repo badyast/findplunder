@@ -64,13 +64,13 @@ void BlunderAnalyzer::analyzeGames(std::vector<Game>& games) {
                   << ": " << games[i].getHeader("White")
                   << " vs " << games[i].getHeader("Black") << "..." << std::endl;
 
-        analyzeGame(games[i]);
+        analyzeGame(games[i], i + 1);
     }
 
     std::cout << std::endl;
 }
 
-void BlunderAnalyzer::analyzeGame(Game& game) {
+void BlunderAnalyzer::analyzeGame(Game& game, int gameIndex) {
     Board board;
     board.setFromFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
@@ -107,6 +107,11 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
 
         analyzedCount++;
         std::string side = (i % 2 == 0) ? "White" : "Black";
+
+        // Show progress indicator in blunders-only mode
+        if (config.blundersOnly) {
+            std::cout << "\rAnalyzing move " << analyzedCount << "/" << totalMovesToAnalyze << "..." << std::flush;
+        }
 
         // 1. Analyze position with MultiPV to get all top moves
         std::vector<MoveScore> topMoves = engine->analyzePosition("startpos", allMoves, config.stockfishDepth);
@@ -151,9 +156,23 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
             scoreDiff = 9999;  // Mark as huge blunder
         }
 
-        // 5. Format and display the result (unless blunders-only mode)
-        if (!config.blundersOnly) {
-            std::cout << "  " << moveNum << side[0] << " " << playedMove << " | ";
+        // 5. Check if this is a blunder
+        bool isBlunder = (playedMoveScore == nullptr) || (scoreDiff > config.thresholdCP);
+
+        // 6. Format and display the result
+        // In blunders-only mode, only show blunders immediately
+        // In normal mode, show all moves
+        if (!config.blundersOnly || isBlunder) {
+            // In blunders-only mode, show game info for context
+            if (config.blundersOnly && isBlunder) {
+                std::cout << "Game #" << gameIndex << " | "
+                          << "White: " << game.getHeader("White") << " | "
+                          << "Black: " << game.getHeader("Black") << " | ";
+            } else {
+                std::cout << "  ";
+            }
+
+            std::cout << moveNum << side[0] << " " << playedMove << " | ";
 
             // Best move
             std::cout << "Best: " << bestMove.move << " (";
@@ -188,6 +207,9 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
             }
 
             std::cout << std::endl;
+        } else if (config.blundersOnly && !isBlunder) {
+            // Clear the progress line if no blunder (move was good)
+            std::cout << "\r" << std::string(80, ' ') << "\r" << std::flush;
         }
 
         // 6. Store analysis
@@ -208,70 +230,86 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         board.makeMove(move);
         allMoves.push_back(playedMove);
     }
+
+    // Clear progress line at the end of game analysis
+    if (config.blundersOnly) {
+        std::cout << "\r" << std::string(80, ' ') << "\r" << std::flush;
+    }
 }
 
 void BlunderAnalyzer::outputBlunders(const std::vector<Game>& games) {
-    std::cout << "=== Blunders Found ===" << std::endl;
-    std::cout << std::endl;
-
     int totalBlunders = 0;
 
-    for (size_t gameIdx = 0; gameIdx < games.size(); gameIdx++) {
-        const Game& game = games[gameIdx];
-        std::vector<MoveAnalysis> blunders = game.getBlunders(config.thresholdCP);
+    // In blunders-only mode, we already printed blunders during analysis
+    // So we just need to count them for the summary
+    if (!config.blundersOnly) {
+        std::cout << "=== Blunders Found ===" << std::endl;
+        std::cout << std::endl;
 
-        for (size_t i = 0; i < blunders.size(); i++) {
-            const MoveAnalysis& blunder = blunders[i];
+        for (size_t gameIdx = 0; gameIdx < games.size(); gameIdx++) {
+            const Game& game = games[gameIdx];
+            std::vector<MoveAnalysis> blunders = game.getBlunders(config.thresholdCP);
 
-            // Determine side that moved (even index = white, odd = black in 0-based)
-            // But we need to look at the actual move number
-            bool isWhiteMove = (blunder.moveNumber * 2 - 1) <= static_cast<int>(game.moves.size()) &&
-                               (game.moves.size() > 0 &&
-                                (blunder.playedMove == game.moves[(blunder.moveNumber - 1) * 2] ||
-                                 (blunder.moveNumber == 1 && blunder.playedMove == game.moves[0])));
+            for (size_t i = 0; i < blunders.size(); i++) {
+                const MoveAnalysis& blunder = blunders[i];
 
-            // Find position in move list
-            std::string sideLetter = "?";
-            for (size_t j = 0; j < game.moves.size(); j++) {
-                if (game.moves[j] == blunder.playedMove) {
-                    sideLetter = (j % 2 == 0) ? "w" : "b";
-                    break;
+                // Determine side that moved (even index = white, odd = black in 0-based)
+                // But we need to look at the actual move number
+                bool isWhiteMove = (blunder.moveNumber * 2 - 1) <= static_cast<int>(game.moves.size()) &&
+                                   (game.moves.size() > 0 &&
+                                    (blunder.playedMove == game.moves[(blunder.moveNumber - 1) * 2] ||
+                                     (blunder.moveNumber == 1 && blunder.playedMove == game.moves[0])));
+
+                // Find position in move list
+                std::string sideLetter = "?";
+                for (size_t j = 0; j < game.moves.size(); j++) {
+                    if (game.moves[j] == blunder.playedMove) {
+                        sideLetter = (j % 2 == 0) ? "w" : "b";
+                        break;
+                    }
                 }
+
+                // Format: Game #N | White | Black | Move Nw/b | Played (score) | Best (score) | Loss
+                std::cout << "Game #" << (gameIdx + 1)
+                          << " | White: " << game.getHeader("White")
+                          << " | Black: " << game.getHeader("Black")
+                          << " | Move " << blunder.moveNumber << sideLetter
+                          << " | Played: " << blunder.playedMove;
+
+                if (blunder.isMateScore && blunder.playedScore > 5000) {
+                    std::cout << " (mate)";
+                } else if (blunder.isMateScore && blunder.playedScore < -5000) {
+                    std::cout << " (-mate)";
+                } else {
+                    std::cout << " (";
+                    if (blunder.playedScore > 0) std::cout << "+";
+                    std::cout << blunder.playedScore << "cp)";
+                }
+
+                std::cout << " | Best: " << blunder.bestMove;
+
+                if (blunder.isMateScore && blunder.bestScore > 5000) {
+                    std::cout << " (mate)";
+                } else if (blunder.isMateScore && blunder.bestScore < -5000) {
+                    std::cout << " (-mate)";
+                } else {
+                    std::cout << " (";
+                    if (blunder.bestScore > 0) std::cout << "+";
+                    std::cout << blunder.bestScore << "cp)";
+                }
+
+                std::cout << " | Loss: " << blunder.scoreDifference << "cp"
+                          << std::endl;
+
+                totalBlunders++;
             }
-
-            // Format: Game #N | White | Black | Move Nw/b | Played (score) | Best (score) | Loss
-            std::cout << "Game #" << (gameIdx + 1)
-                      << " | White: " << game.getHeader("White")
-                      << " | Black: " << game.getHeader("Black")
-                      << " | Move " << blunder.moveNumber << sideLetter
-                      << " | Played: " << blunder.playedMove;
-
-            if (blunder.isMateScore && blunder.playedScore > 5000) {
-                std::cout << " (mate)";
-            } else if (blunder.isMateScore && blunder.playedScore < -5000) {
-                std::cout << " (-mate)";
-            } else {
-                std::cout << " (";
-                if (blunder.playedScore > 0) std::cout << "+";
-                std::cout << blunder.playedScore << "cp)";
-            }
-
-            std::cout << " | Best: " << blunder.bestMove;
-
-            if (blunder.isMateScore && blunder.bestScore > 5000) {
-                std::cout << " (mate)";
-            } else if (blunder.isMateScore && blunder.bestScore < -5000) {
-                std::cout << " (-mate)";
-            } else {
-                std::cout << " (";
-                if (blunder.bestScore > 0) std::cout << "+";
-                std::cout << blunder.bestScore << "cp)";
-            }
-
-            std::cout << " | Loss: " << blunder.scoreDifference << "cp"
-                      << std::endl;
-
-            totalBlunders++;
+        }
+    } else {
+        // Just count blunders for summary
+        for (size_t gameIdx = 0; gameIdx < games.size(); gameIdx++) {
+            const Game& game = games[gameIdx];
+            std::vector<MoveAnalysis> blunders = game.getBlunders(config.thresholdCP);
+            totalBlunders += blunders.size();
         }
     }
 

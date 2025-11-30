@@ -21,7 +21,7 @@ private:
     Config config;
     StockfishEngine* engine;
 
-    void analyzeGame(Game& game);
+    void analyzeGame(Game& game, int gameIndex);
 };
 
 #endif // BLUNDER_ANALYZER_H
