@@ -48,7 +48,15 @@ cmake .
 make
 ```
 
-3. Ensure Stockfish and pgn-extract are installed:
+3. Install (optional - installs to `/usr/local/bin`):
+```bash
+sudo make install
+# Or install to custom location:
+cmake -DCMAKE_INSTALL_PREFIX=/your/custom/path .
+make install
+```
+
+4. Ensure Stockfish and pgn-extract are installed:
 ```bash
 # Ubuntu/Debian
 sudo apt-get install stockfish pgn-extract
@@ -62,6 +70,10 @@ sudo apt-get install stockfish pgn-extract
 ### Basic Usage
 
 ```bash
+# If installed:
+findepatzer game.pgn
+
+# Or run directly from build directory:
 ./findepatzer game.pgn
 ```
 
