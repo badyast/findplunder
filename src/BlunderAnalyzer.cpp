@@ -4,6 +4,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <set>
+#include <algorithm>
+#include <cctype>
 
 BlunderAnalyzer::BlunderAnalyzer(const Config& cfg)
     : config(cfg)
@@ -17,6 +19,14 @@ BlunderAnalyzer::~BlunderAnalyzer() {
         delete engine;
         engine = NULL;
     }
+}
+
+// Helper function to normalize UCI moves to lowercase for comparison
+// (e.g., h7h8Q and h7h8q should be treated as the same move)
+static std::string toLowerUCI(const std::string& move) {
+    std::string result = move;
+    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    return result;
 }
 
 void BlunderAnalyzer::analyzeGames(std::vector<Game>& games) {
@@ -111,9 +121,11 @@ void BlunderAnalyzer::analyzeGame(Game& game) {
         MoveScore bestMove = topMoves[0];
 
         // 3. Find the played move in the top moves list
+        // Normalize to lowercase for comparison (h7h8Q == h7h8q)
         MoveScore* playedMoveScore = nullptr;
+        std::string playedMoveLower = toLowerUCI(playedMove);
         for (size_t j = 0; j < topMoves.size(); j++) {
-            if (topMoves[j].move == playedMove) {
+            if (toLowerUCI(topMoves[j].move) == playedMoveLower) {
                 playedMoveScore = &topMoves[j];
                 break;
             }
