@@ -192,7 +192,7 @@ void BlunderAnalyzer::analyzeGame(Game& game, int gameIndex) {
                     std::cout << (playedScore > 0 ? "+" : "") << playedScore << "cp";
                 }
             } else {
-                std::cout << "not in top 200";
+                std::cout << "not in top " << config.multiPV;
             }
             std::cout << ") | ";
 
