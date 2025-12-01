@@ -22,6 +22,15 @@ Config::Config()
 }
 
 void Config::loadFromCommandLine(int argc, char** argv) {
+    // Check for --help or -h first
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h") {
+            printUsage(argv[0]);
+            exit(0);
+        }
+    }
+
     if (argc < 2) {
         printUsage(argv[0]);
         exit(1);
@@ -110,8 +119,10 @@ bool Config::validate() const {
 
 void Config::printUsage(const char* programName) const {
     std::cout << "Usage: " << programName << " <pgn-file> [options]" << std::endl;
+    std::cout << "       " << programName << " --help" << std::endl;
     std::cout << std::endl;
     std::cout << "Options:" << std::endl;
+    std::cout << "  -h, --help            Show this help message and exit" << std::endl;
     std::cout << "  --threshold <cp>      Minimum score difference in centipawns (default: 150)" << std::endl;
     std::cout << "  --depth <n>           Stockfish search depth (default: 15)" << std::endl;
     std::cout << "  --start-move <n>      Start analysis from move number (default: 1)" << std::endl;
